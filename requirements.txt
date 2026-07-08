@@ -2,3 +2,4 @@ streamlit
 chromadb
 sentence-transformers
 requests
+streamlit_option_menu
