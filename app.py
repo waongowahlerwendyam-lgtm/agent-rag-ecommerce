@@ -7,7 +7,7 @@ import pandas as pd
 from streamlit_option_menu import option_menu
 
 # ============================================
-# 1. CONFIGURATION DE LA PAGE (Style pro)
+# 1. CONFIGURATION DE LA PAGE (Design Pro)
 # ============================================
 st.set_page_config(
     page_title="Agent RAG Pro - E-commerce",
@@ -16,14 +16,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personnalisé pour un look moderne
+# CSS personnalisé
 st.markdown("""
 <style>
-    /* Fond général */
     .stApp {
         background-color: #f8f9fa;
     }
-    /* Titre principal */
     .main-header {
         font-size: 2.5rem;
         font-weight: 700;
@@ -36,32 +34,27 @@ st.markdown("""
     .main-header span {
         color: #4a90e2;
     }
-    /* Messages du chat */
     .stChatMessage {
         border-radius: 18px;
         padding: 12px 20px;
         margin: 8px 0;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
-    /* Messages utilisateur (alignés à droite) */
     div[data-testid="stChatMessage"]:has(div[data-testid="stMarkdownContainer"]:first-child) {
         background-color: #4a90e2;
         color: white !important;
         border-bottom-right-radius: 4px;
     }
-    /* Messages assistant (alignés à gauche) */
     div[data-testid="stChatMessage"]:has(div[data-testid="stMarkdownContainer"]:nth-child(2)) {
         background-color: white;
         border: 1px solid #e0e0e0;
         border-bottom-left-radius: 4px;
     }
-    /* Barre latérale */
     .css-1d391kg {
         background-color: #ffffff;
         border-right: 1px solid #e8e8e8;
         padding-top: 2rem;
     }
-    /* Style des sources */
     .source-box {
         background-color: #f1f3f5;
         border-radius: 8px;
@@ -70,7 +63,6 @@ st.markdown("""
         font-size: 0.85rem;
         border-left: 4px solid #4a90e2;
     }
-    /* Badge de mode */
     .mode-badge {
         display: inline-block;
         background-color: #4a90e2;
@@ -81,7 +73,6 @@ st.markdown("""
         font-weight: 600;
         margin-bottom: 8px;
     }
-    /* Footer */
     .footer {
         text-align: center;
         color: #888;
@@ -94,7 +85,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================
-# 2. FONCTIONS DE BASE (inchangées)
+# 2. BASE DE DONNÉES FICTIVE (Suivi de commande)
+# ============================================
+COMMANDES = {
+    "CMD001": {"statut": "✅ Livrée le 05/07/2026", "produit": "Souris Logitech MX Master"},
+    "CMD002": {"statut": "🚚 En cours de livraison (arrivée demain)", "produit": "Disque SSD Externe 1To"},
+    "CMD003": {"statut": "⏳ En attente de paiement", "produit": "Casque Sony WH-1000XM5"},
+    "CMD004": {"statut": "📦 Expédiée le 07/07/2026", "produit": "iPhone 15 Pro Max"},
+}
+
+# ============================================
+# 3. FONCTIONS DE BASE (Chargement et Recherche)
 # ============================================
 
 def creer_base_vectorielle():
@@ -136,18 +137,32 @@ def rechercher(question, k=3):
     results = collection.query(
         query_embeddings=[question_embedding],
         n_results=k,
-        include=["documents", "metadatas"]
+        include=["documents", "metadatas", "distances"]
     )
     return results
 
-def interroger_groq(contexte, question):
+# ============================================
+# 4. APPEL À GROQ (AVEC MODES)
+# ============================================
+
+def interroger_groq(contexte, question, mode="Question"):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": "Bearer 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",
         "Content-Type": "application/json"
     }
-    prompt = f"""Tu es un assistant e-commerce professionnel. 
-Réponds UNIQUEMENT en utilisant le CONTEXTE fourni.
+    
+    # Instructions spécifiques selon le mode
+    if mode == "Prix":
+        consigne_supp = "Tu es un assistant pour comparer les prix. Réponds UNIQUEMENT avec les prix indiqués dans le contexte. Si le prix n'y est pas, dis 'Je ne sais pas'."
+    elif mode == "Recommandation":
+        consigne_supp = "Tu es un conseiller produit. Fais une recommandation basée sur les notes et avis clients du contexte. Si tu n'as pas assez d'infos, dis 'Je ne sais pas'."
+    elif mode == "Commande":
+        consigne_supp = "Tu es un assistant de suivi de commande. Simule une recherche dans le système. Si le numéro de commande n'est pas mentionné, dis 'Je ne sais pas, vérifie ton numéro'."
+    else: # Question
+        consigne_supp = "Tu es un assistant e-commerce. Réponds UNIQUEMENT en utilisant le CONTEXTE fourni."
+
+    prompt = f"""{consigne_supp}
 Si la réponse n'est pas dans le CONTEXTE, réponds exactement : "Je ne sais pas, l'information n'est pas dans ma base."
 
 CONTEXTE : {contexte}
@@ -166,10 +181,10 @@ REPONSE :"""
         return f"Erreur API: {response.status_code}"
 
 # ============================================
-# 3. INTERFACE UTILISATEUR (Design Pro)
+# 5. INTERFACE UTILISATEUR
 # ============================================
 
-# --- En-tête ---
+# En-tête
 st.markdown('<div class="main-header">🛒 Assistant <span>RAG</span> · E-commerce</div>', unsafe_allow_html=True)
 
 # --- Sidebar (Menu élégant) ---
@@ -192,7 +207,7 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    st.caption("🔍 Mode actif : **" + selected + "**")
+    st.caption(f"🔍 Mode actif : **{selected}**")
     st.caption("📊 Base : " + str(len(collection.get()['ids']) if collection else 0) + " documents")
     st.caption("⚡ Powered by Groq + Llama 3")
 
@@ -203,14 +218,20 @@ st.markdown(f'<span class="mode-badge">💬 Mode {selected}</span>', unsafe_allo
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Afficher les messages avec un design amélioré
+# Afficher les messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if "sources" in msg:
             with st.expander("📄 Voir les sources utilisées"):
                 for i, s in enumerate(msg["sources"]):
-                    st.markdown(f'<div class="source-box">📌 Source {i+1} : {s[:200]}...</div>', unsafe_allow_html=True)
+                    # Affichage avec score de pertinence
+                    if "distances" in msg:
+                        distance = msg["distances"][i]
+                        confiance = round(1 - distance, 2)
+                        st.markdown(f'<div class="source-box">📌 Source {i+1} (confiance: {confiance}) : {s[:200]}...</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div class="source-box">📌 Source {i+1} : {s[:200]}...</div>', unsafe_allow_html=True)
 
 # Zone de saisie
 if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
@@ -222,27 +243,65 @@ if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
     # Réponse de l'assistant
     with st.chat_message("assistant"):
         with st.spinner("🔍 Recherche en cours..."):
-            if collection is None:
-                st.error("❌ La base vectorielle n'a pas pu être créée.")
-            else:
-                results = rechercher(prompt)
-                if results and results["documents"]:
-                    contextes = results["documents"][0]
-                    contexte_complet = "\n".join(contextes)
-                    reponse = interroger_groq(contexte_complet, prompt)
+            # --- GESTION DU MODE "COMMANDE" (sans API) ---
+            if selected == "Commande":
+                # Vérifier si le prompt ressemble à un numéro de commande
+                numero = prompt.strip().upper()
+                if numero in COMMANDES:
+                    info = COMMANDES[numero]
+                    reponse = f"📦 **Commande {numero}**\n\n- **Statut :** {info['statut']}\n- **Produit :** {info['produit']}"
                     st.markdown(reponse)
-                    
-                    with st.expander("📄 Voir les sources utilisées"):
-                        for i, doc in enumerate(contextes):
-                            st.markdown(f'<div class="source-box">📌 Source {i+1} : {doc[:200]}...</div>', unsafe_allow_html=True)
-                    
-                    st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": reponse,
-                        "sources": contextes
-                    })
+                    st.session_state.messages.append({"role": "assistant", "content": reponse})
                 else:
-                    st.write("😕 Aucune source trouvée. Essayez une autre question.")
+                    # Si ce n'est pas un numéro connu, passer par le RAG
+                    results = rechercher(prompt)
+                    if results and results["documents"]:
+                        contextes = results["documents"][0]
+                        distances = results["distances"][0]
+                        contexte_complet = "\n".join(contextes)
+                        reponse = interroger_groq(contexte_complet, prompt, selected)
+                        st.markdown(reponse)
+                        
+                        with st.expander("📄 Voir les sources utilisées"):
+                            for i, doc in enumerate(contextes):
+                                confiance = round(1 - distances[i], 2)
+                                st.markdown(f'<div class="source-box">📌 Source {i+1} (confiance: {confiance}) : {doc[:200]}...</div>', unsafe_allow_html=True)
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": reponse,
+                            "sources": contextes,
+                            "distances": distances
+                        })
+                    else:
+                        st.write("😕 Aucune source trouvée. Essayez une autre question.")
+            
+            # --- AUTRES MODES (Question, Reco, Prix) ---
+            else:
+                if collection is None:
+                    st.error("❌ La base vectorielle n'a pas pu être créée.")
+                else:
+                    results = rechercher(prompt)
+                    if results and results["documents"]:
+                        contextes = results["documents"][0]
+                        distances = results["distances"][0]
+                        contexte_complet = "\n".join(contextes)
+                        reponse = interroger_groq(contexte_complet, prompt, selected)
+                        st.markdown(reponse)
+                        
+                        with st.expander("📄 Voir les sources utilisées"):
+                            for i, doc in enumerate(contextes):
+                                confiance = round(1 - distances[i], 2)
+                                st.markdown(f'<div class="source-box">📌 Source {i+1} (confiance: {confiance}) : {doc[:200]}...</div>', unsafe_allow_html=True)
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": reponse,
+                            "sources": contextes,
+                            "distances": distances
+                        })
+                    else:
+                        st.write("😕 Aucune source trouvée. Essayez une autre question.")
 
 # --- Pied de page ---
 st.markdown('<div class="footer">🔒 Projet Data Science 2026 · Agent RAG Intelligent · IFOAD UJKZ</div>', unsafe_allow_html=True)
