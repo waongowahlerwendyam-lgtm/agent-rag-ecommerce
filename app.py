@@ -3,27 +3,71 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 import requests
 import json
+import pandas as pd
 
 # Configuration de la page
 st.set_page_config(page_title="🛒 Assistant E-commerce", page_icon="🛍️")
 st.title("🤖 Agent RAG - E-commerce Intelligent")
 
-# Initialiser les sessions
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# 1. Fonction pour créer la base vectorielle (si elle n'existe pas)
+def creer_base_vectorielle():
+    """Crée la base ChromaDB à partir de data.csv si elle n'existe pas"""
+    try:
+        client = chromadb.PersistentClient(path="./chroma_db")
+        # Vérifier si la collection existe déjà
+        try:
+            collection = client.get_collection(name="avis_produits")
+            return client, collection
+        except chromadb.errors.NotFoundError:
+            # Créer la collection si elle n'existe pas
+            collection = client.create_collection(name="avis_produits")
+            
+            # Charger le CSV
+            df = pd.read_csv("data.csv")
+            documents = []
+            metadatas = []
+            ids = []
+            
+            for idx, row in df.iterrows():
+                texte = f"Produit : {row['produit_nom']}. Prix : {row['prix']}. Avis : {row['avis_texte']} Note : {row['note']}/5"
+                documents.append(texte)
+                metadatas.append({
+                    "produit": row['produit_nom'],
+                    "prix": row['prix'],
+                    "note": str(row['note'])
+                })
+                ids.append(f"id_{idx}")
+            
+            # Générer les embeddings
+            model = SentenceTransformer('all-MiniLM-L6-v2')
+            embeddings = model.encode(documents).tolist()
+            
+            # Ajouter à ChromaDB
+            collection.add(
+                embeddings=embeddings,
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids
+            )
+            return client, collection
+    except Exception as e:
+        st.error(f"Erreur lors de la création de la base : {e}")
+        return None, None
 
-# 1. Charger les modèles (une seule fois)
+# 2. Charger les modèles (une seule fois)
 @st.cache_resource
 def load_models():
     model = SentenceTransformer('all-MiniLM-L6-v2')
-    client = chromadb.PersistentClient(path="./chroma_db")
-    collection = client.get_collection(name="langchain")
-    return model, collection
+    client, collection = creer_base_vectorielle()
+    return model, client, collection
 
-model, collection = load_models()
+# 3. Initialisation
+model, client, collection = load_models()
 
-# 2. Fonction de recherche
+# 4. Fonction de recherche
 def rechercher(question, k=3):
+    if collection is None:
+        return None
     question_embedding = model.encode(question).tolist()
     results = collection.query(
         query_embeddings=[question_embedding],
@@ -32,7 +76,7 @@ def rechercher(question, k=3):
     )
     return results
 
-# 3. Fonction Groq (avec la bonne clé)
+# 5. Fonction Groq
 def interroger_groq(contexte, question):
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -58,9 +102,13 @@ REPONSE :"""
     else:
         return f"Erreur API: {response.status_code}"
 
-# 4. Interface utilisateur
+# 6. Interface utilisateur
 st.sidebar.title("Modes")
 mode = st.sidebar.radio("Choisis ton mode :", ["Question", "Recommandation", "Prix", "Commande"])
+
+# Initialiser l'historique
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # Afficher l'historique
 for msg in st.session_state.messages:
@@ -73,31 +121,30 @@ for msg in st.session_state.messages:
 
 # Zone de saisie
 if prompt := st.chat_input("Pose ta question sur un produit..."):
-    # Afficher la question
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
     
-    # Préparer la réponse
     with st.chat_message("assistant"):
         with st.spinner("🔍 Recherche en cours..."):
-            results = rechercher(prompt)
-            contextes = results["documents"][0]
-            contexte_complet = "\n".join(contextes)
-            
-            # Appel à l'IA
-            reponse = interroger_groq(contexte_complet, prompt)
-            
-            st.markdown(reponse)
-            
-            # Afficher les sources
-            with st.expander("📄 Sources utilisées"):
-                for i, doc in enumerate(contextes):
-                    st.caption(f"Source {i+1}: {doc[:200]}...")
-            
-            # Sauvegarder dans l'historique
-            st.session_state.messages.append({
-                "role": "assistant", 
-                "content": reponse,
-                "sources": contextes
-            })
+            if collection is None:
+                st.error("La base vectorielle n'a pas pu être créée.")
+            else:
+                results = rechercher(prompt)
+                if results and results["documents"]:
+                    contextes = results["documents"][0]
+                    contexte_complet = "\n".join(contextes)
+                    reponse = interroger_groq(contexte_complet, prompt)
+                    st.markdown(reponse)
+                    
+                    with st.expander("📄 Sources utilisées"):
+                        for i, doc in enumerate(contextes):
+                            st.caption(f"Source {i+1}: {doc[:200]}...")
+                    
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": reponse,
+                        "sources": contextes
+                    })
+                else:
+                    st.write("Aucune source trouvée. Essaye une autre question.")
