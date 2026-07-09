@@ -11,7 +11,6 @@ from streamlit_option_menu import option_menu
 # ============================================
 st.set_page_config(
     page_title="Agent RAG Pro - E-commerce",
-    page_icon="🛒",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -88,10 +87,10 @@ st.markdown("""
 # 2. BASE DE DONNÉES FICTIVE (Suivi de commande)
 # ============================================
 COMMANDES = {
-    "CMD001": {"statut": "✅ Livrée le 05/07/2026", "produit": "Souris Logitech MX Master"},
-    "CMD002": {"statut": "🚚 En cours de livraison (arrivée demain)", "produit": "Disque SSD Externe 1To"},
-    "CMD003": {"statut": "⏳ En attente de paiement", "produit": "Casque Sony WH-1000XM5"},
-    "CMD004": {"statut": "📦 Expédiée le 07/07/2026", "produit": "iPhone 15 Pro Max"},
+    "CMD001": {"statut": " Livrée le 05/07/2026", "produit": "Souris Logitech MX Master"},
+    "CMD002": {"statut": " En cours de livraison (arrivée demain)", "produit": "Disque SSD Externe 1To"},
+    "CMD003": {"statut": " En attente de paiement", "produit": "Casque Sony WH-1000XM5"},
+    "CMD004": {"statut": " Expédiée le 07/07/2026", "produit": "iPhone 15 Pro Max"},
 }
 
 # ============================================
@@ -119,7 +118,7 @@ def creer_base_vectorielle():
             collection.add(embeddings=embeddings, documents=documents, metadatas=metadatas, ids=ids)
             return client, collection
     except Exception as e:
-        st.error(f"❌ Erreur : {e}")
+        st.error(f" Erreur : {e}")
         return None, None
 
 @st.cache_resource
@@ -190,7 +189,7 @@ st.markdown('<div class="main-header">🛒 Assistant <span>RAG</span> · E-comme
 # --- Sidebar (Menu élégant) ---
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/000000/shopping-bag.png", width=60)
-    st.markdown("### 🧠 Tableau de bord")
+    st.markdown("###  Tableau de bord")
     
     selected = option_menu(
         menu_title=None,
@@ -207,9 +206,9 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    st.caption(f"🔍 Mode actif : **{selected}**")
-    st.caption("📊 Base : " + str(len(collection.get()['ids']) if collection else 0) + " documents")
-    st.caption("⚡ Powered by Groq + Llama 3")
+    st.caption(f" Mode actif : **{selected}**")
+    st.caption(" Base : " + str(len(collection.get()['ids']) if collection else 0) + " documents")
+    st.caption(" Powered by Groq + Llama 3")
 
 # --- Zone de chat ---
 st.markdown(f'<span class="mode-badge">💬 Mode {selected}</span>', unsafe_allow_html=True)
@@ -223,18 +222,18 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if "sources" in msg:
-            with st.expander("📄 Voir les sources utilisées"):
+            with st.expander(" Voir les sources utilisées"):
                 for i, s in enumerate(msg["sources"]):
                     # Affichage avec score de pertinence
                     if "distances" in msg:
                         distance = msg["distances"][i]
                         confiance = round(1 - distance, 2)
-                        st.markdown(f'<div class="source-box">📌 Source {i+1} (confiance: {confiance}) : {s[:200]}...</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="source-box"> Source {i+1} (confiance: {confiance}) : {s[:200]}...</div>', unsafe_allow_html=True)
                     else:
-                        st.markdown(f'<div class="source-box">📌 Source {i+1} : {s[:200]}...</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="source-box"> Source {i+1} : {s[:200]}...</div>', unsafe_allow_html=True)
 
 # Zone de saisie
-if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
+if prompt := st.chat_input(" Posez votre question sur un produit..."):
     # Ajouter le message utilisateur
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -249,7 +248,7 @@ if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
                 numero = prompt.strip().upper()
                 if numero in COMMANDES:
                     info = COMMANDES[numero]
-                    reponse = f"📦 **Commande {numero}**\n\n- **Statut :** {info['statut']}\n- **Produit :** {info['produit']}"
+                    reponse = f" **Commande {numero}**\n\n- **Statut :** {info['statut']}\n- **Produit :** {info['produit']}"
                     st.markdown(reponse)
                     st.session_state.messages.append({"role": "assistant", "content": reponse})
                 else:
@@ -262,10 +261,10 @@ if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
                         reponse = interroger_groq(contexte_complet, prompt, selected)
                         st.markdown(reponse)
                         
-                        with st.expander("📄 Voir les sources utilisées"):
+                        with st.expander(" Voir les sources utilisées"):
                             for i, doc in enumerate(contextes):
                                 confiance = round(1 - distances[i], 2)
-                                st.markdown(f'<div class="source-box">📌 Source {i+1} (confiance: {confiance}) : {doc[:200]}...</div>', unsafe_allow_html=True)
+                                st.markdown(f'<div class="source-box"> Source {i+1} (confiance: {confiance}) : {doc[:200]}...</div>', unsafe_allow_html=True)
                         
                         st.session_state.messages.append({
                             "role": "assistant", 
@@ -274,12 +273,12 @@ if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
                             "distances": distances
                         })
                     else:
-                        st.write("😕 Aucune source trouvée. Essayez une autre question.")
+                        st.write(" Aucune source trouvée. Essayez une autre question.")
             
             # --- AUTRES MODES (Question, Reco, Prix) ---
             else:
                 if collection is None:
-                    st.error("❌ La base vectorielle n'a pas pu être créée.")
+                    st.error(" La base vectorielle n'a pas pu être créée.")
                 else:
                     results = rechercher(prompt)
                     if results and results["documents"]:
@@ -289,10 +288,10 @@ if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
                         reponse = interroger_groq(contexte_complet, prompt, selected)
                         st.markdown(reponse)
                         
-                        with st.expander("📄 Voir les sources utilisées"):
+                        with st.expander(" Voir les sources utilisées"):
                             for i, doc in enumerate(contextes):
                                 confiance = round(1 - distances[i], 2)
-                                st.markdown(f'<div class="source-box">📌 Source {i+1} (confiance: {confiance}) : {doc[:200]}...</div>', unsafe_allow_html=True)
+                                st.markdown(f'<div class="source-box"> Source {i+1} (confiance: {confiance}) : {doc[:200]}...</div>', unsafe_allow_html=True)
                         
                         st.session_state.messages.append({
                             "role": "assistant", 
@@ -301,7 +300,7 @@ if prompt := st.chat_input("💬 Posez votre question sur un produit..."):
                             "distances": distances
                         })
                     else:
-                        st.write("😕 Aucune source trouvée. Essayez une autre question.")
+                        st.write(" Aucune source trouvée. Essayez une autre question.")
 
 # --- Pied de page ---
-st.markdown('<div class="footer">🔒 Projet Data Science 2026 · Agent RAG Intelligent · IFOAD UJKZ</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer"> Projet Data Science 2026 · Agent RAG Intelligent · IFOAD UJKZ</div>', unsafe_allow_html=True)
