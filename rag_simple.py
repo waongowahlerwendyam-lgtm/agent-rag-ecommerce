@@ -3,10 +3,10 @@ from sentence_transformers import SentenceTransformer
 import requests
 import json
 
-print("🔄 Chargement du modèle d'embeddings...")
+print(" Chargement du modèle d'embeddings...")
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-print("📂 Connexion à ChromaDB...")
+print(" Connexion à ChromaDB...")
 client = chromadb.PersistentClient(path="./chroma_db")
 collection = client.get_collection(name="langchain")
 
@@ -45,29 +45,29 @@ REPONSE :"""
     
     # SI ERREUR (clé invalide, limite, etc.) on affiche le détail
     if response.status_code != 200:
-        print(f"❌ Erreur API Groq (Code {response.status_code}):")
+        print(f" Erreur API Groq (Code {response.status_code}):")
         print(response.text)
         return "Désolé, l'IA n'a pas pu répondre à cause d'une erreur technique."
     
     try:
         return response.json()["choices"][0]["message"]["content"]
     except KeyError:
-        print("❌ Erreur de parsing de la réponse Groq:")
+        print(" Erreur de parsing de la réponse Groq:")
         print(response.text)
         return "Désolé, une erreur interne est survenue."
 
 if __name__ == "__main__":
     question = "Qui est le président du Burkina Faso ?"
-    print(f"🧑 Question : {question}")
+    print(f" Question : {question}")
     
     results = rechercher(question)
     contextes = results["documents"][0]
     contexte_complet = "\n".join(contextes)
     
     reponse = interroger_groq(contexte_complet, question)
-    print("\n🤖 Réponse de l'agent :")
+    print("\n Réponse de l'agent :")
     print(reponse)
     
-    print("\n📄 Sources utilisees :")
+    print("\n Sources utilisees :")
     for i, doc in enumerate(contextes):
         print(f"Source {i+1}: {doc[:150]}...")
